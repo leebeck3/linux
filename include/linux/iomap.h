@@ -262,6 +262,12 @@ struct iomap_read_folio_ops {
 	 * bio, such as csum calculations or multi-device bio split
 	 */
 	void (*submit_io)(struct inode *inode, struct bio *bio);
+
+	/*
+	 * Optional, allows filesystem to specify own bio_set, so new bio's
+	 * can be allocated from the provided bio_set.
+	 */
+	struct bio_set *bio_set;
 };
 
 ssize_t iomap_file_buffered_write(struct kiocb *iocb, struct iov_iter *from,
