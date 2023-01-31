@@ -378,12 +378,13 @@ static inline bool iomap_block_needs_zeroing(const struct iomap_iter *iter,
 {
 	const struct iomap *srcmap = iomap_iter_srcmap(iter);
 
-	return srcmap->type != IOMAP_MAPPED ||
+	return (srcmap->type != IOMAP_MAPPED &&
+			srcmap->type != IOMAP_ENCODED) ||
 		(srcmap->flags & IOMAP_F_NEW) ||
 		pos >= i_size_read(iter->inode);
 }
 
-static loff_t iomap_readpage_iter(const struct iomap_iter *iter,
+static loff_t iomap_readpage_iter(struct iomap_iter *iter,
 		struct iomap_readpage_ctx *ctx, loff_t offset)
 {
 	const struct iomap *iomap = &iter->iomap;
@@ -419,6 +420,7 @@ static loff_t iomap_readpage_iter(const struct iomap_iter *iter,
 
 	sector = iomap_sector(iomap, pos);
 	if (!ctx->bio ||
+	    (iomap->type & IOMAP_ENCODED && iomap->offset != iter->prev.offset) ||
 	    bio_end_sector(ctx->bio) != sector ||
 	    !bio_add_folio(ctx->bio, folio, plen, poff)) {
 		struct bio_set *bioset;
@@ -428,10 +430,11 @@ static loff_t iomap_readpage_iter(const struct iomap_iter *iter,
 
 		if (ctx->bio) {
 			if (ctx->ops && ctx->ops->submit_io)
-				ctx->ops->submit_io(iter->inode, ctx->bio);
+				ctx->ops->submit_io(iter->inode, ctx->bio, &iter->prev);
 			else
 				submit_bio(ctx->bio);
 		}
+		iter->prev = iter->iomap;
 
 		if (ctx->rac) /* same as readahead_gfp_mask */
 			gfp |= __GFP_NORETRY | __GFP_NOWARN;
@@ -470,7 +473,7 @@ done:
 	return pos - orig_pos + plen;
 }
 
-static loff_t iomap_read_folio_iter(const struct iomap_iter *iter,
+static loff_t iomap_read_folio_iter(struct iomap_iter *iter,
 		struct iomap_readpage_ctx *ctx)
 {
 	struct folio *folio = ctx->cur_folio;
@@ -509,7 +512,7 @@ int iomap_read_folio(struct folio *folio, const struct iomap_ops *ops,
 
 	if (ctx.bio) {
 		if (ctx.ops->submit_io)
-			ctx.ops->submit_io(iter.inode, ctx.bio);
+			ctx.ops->submit_io(iter.inode, ctx.bio, &iter.prev);
 		else
 			submit_bio(ctx.bio);
 		WARN_ON_ONCE(!ctx.cur_folio_in_bio);
@@ -527,7 +530,7 @@ int iomap_read_folio(struct folio *folio, const struct iomap_ops *ops,
 }
 EXPORT_SYMBOL_GPL(iomap_read_folio);
 
-static loff_t iomap_readahead_iter(const struct iomap_iter *iter,
+static loff_t iomap_readahead_iter(struct iomap_iter *iter,
 		struct iomap_readpage_ctx *ctx)
 {
 	loff_t length = iomap_length(iter);
@@ -588,7 +591,7 @@ void iomap_readahead(struct readahead_control *rac, const struct iomap_ops *ops,
 
 	if (ctx.bio) {
 		if (ctx.ops && ctx.ops->submit_io)
-			ctx.ops->submit_io(iter.inode, ctx.bio);
+			ctx.ops->submit_io(iter.inode, ctx.bio, &iter.prev);
 		else
 			submit_bio(ctx.bio);
 	}
