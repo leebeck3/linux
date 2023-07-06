@@ -163,6 +163,13 @@ struct iomap_folio_ops {
 	 * locked by the iomap code.
 	 */
 	bool (*iomap_valid)(struct inode *inode, const struct iomap *iomap);
+
+	/*
+	 * Custom read_inline function for filesystem such as btrfs
+	 * that may store data in compressed form.
+	 */
+
+	int (*read_inline)(const struct iomap *iomap, struct folio *folio);
 };
 
 /*
