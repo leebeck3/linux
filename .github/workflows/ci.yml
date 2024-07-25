@@ -71,6 +71,7 @@ jobs:
   test-zoned:
     runs-on: [self-hosted, linux, x64, zoned]
     needs: deploy
+    timeout-minutes: 480
     defaults:
       run:
         working-directory: /root/fstests
@@ -101,6 +102,7 @@ jobs:
   test:
     runs-on: [self-hosted, linux, x64, vm]
     needs: deploy
+    timeout-minutes: 480
     defaults:
       run:
         working-directory: /root/fstests
@@ -130,6 +132,7 @@ jobs:
   test-arm:
     runs-on: [self-hosted, linux, ARM64, vm]
     needs: deploy-arm
+    timeout-minutes: 480
     defaults:
       run:
         working-directory: /root/fstests
