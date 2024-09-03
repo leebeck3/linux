@@ -1742,6 +1742,8 @@ static int fanotify_events_supported(struct fsnotify_group *group,
 
 	/* Pre-content events are only supported on regular files and dirs */
 	if (mask & FANOTIFY_PRE_CONTENT_EVENTS) {
+		if (!(path->mnt->mnt_sb->s_type->fs_flags & FS_ALLOW_HSM))
+			return -EINVAL;
 		if (!is_dir && !d_is_reg(path->dentry))
 			return -EINVAL;
 		if (is_dir && mask & FAN_PRE_MODIFY)
