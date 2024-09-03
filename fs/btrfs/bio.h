@@ -15,6 +15,7 @@
 struct btrfs_bio;
 struct btrfs_fs_info;
 struct btrfs_inode;
+extern struct bio_set btrfs_bioset;
 
 #define BTRFS_BIO_INLINE_CSUM_SIZE	64
 

@@ -15,7 +15,7 @@
 #include "file-item.h"
 #include "raid-stripe-tree.h"
 
-static struct bio_set btrfs_bioset;
+struct bio_set btrfs_bioset;
 static struct bio_set btrfs_clone_bioset;
 static struct bio_set btrfs_repair_bioset;
 static mempool_t btrfs_failed_bio_pool;
