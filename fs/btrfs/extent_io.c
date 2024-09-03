@@ -962,6 +962,34 @@ static struct extent_map *__get_extent_map(struct inode *inode,
 
 	return em;
 }
+
+static int btrfs_read_iomap_begin(struct inode *inode, loff_t pos,
+		loff_t length, unsigned int flags, struct iomap *iomap,
+		struct iomap *srcmap)
+{
+	struct btrfs_fs_info *fs_info = btrfs_sb(inode->i_sb);
+	struct extent_map *em;
+	struct extent_state *cached_state = NULL;
+	u64 start = round_down(pos, fs_info->sectorsize);
+	u64 end = round_up(pos + length, fs_info->sectorsize) - 1;
+
+	btrfs_lock_and_flush_ordered_range(BTRFS_I(inode), start, end, &cached_state);
+	em = btrfs_get_extent(BTRFS_I(inode), NULL, start, end - start + 1);
+	unlock_extent(&BTRFS_I(inode)->io_tree, start, end, &cached_state);
+	if (IS_ERR(em))
+		return PTR_ERR(em);
+
+	btrfs_em_to_iomap(inode, em, iomap, start, false);
+	free_extent_map(em);
+
+	return 0;
+}
+
+static const struct iomap_ops btrfs_buffered_read_iomap_ops = {
+	.iomap_begin = btrfs_read_iomap_begin,
+};
+
+
 /*
  * basic readpage implementation.  Locked extent state structs are inserted
  * into the tree that are removed when the IO is done (by the end_io
