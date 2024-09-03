@@ -901,6 +901,18 @@ void clear_folio_extent_mapped(struct folio *folio)
 	folio_detach_private(folio);
 }
 
+static void btrfs_put_folio(struct inode *inode, loff_t pos,
+		unsigned copied, struct folio *folio)
+{
+	set_folio_extent_mapped(folio);
+	folio_unlock(folio);
+	folio_put(folio);
+}
+
+static const struct iomap_folio_ops btrfs_iomap_folio_ops = {
+	.put_folio = btrfs_put_folio,
+};
+
 static void btrfs_em_to_iomap(struct inode *inode,
 		struct extent_map *em, struct iomap *iomap,
 		loff_t sector_pos, bool write)
@@ -928,6 +940,7 @@ static void btrfs_em_to_iomap(struct inode *inode,
 	iomap->offset = em->start;
 	iomap->bdev = fs_info->fs_devices->latest_dev->bdev;
 	iomap->length = em->len;
+	iomap->folio_ops =  &btrfs_iomap_folio_ops;
 }
 
 static struct extent_map *__get_extent_map(struct inode *inode,
