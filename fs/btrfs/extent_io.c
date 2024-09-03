@@ -14,6 +14,7 @@
 #include <linux/pagevec.h>
 #include <linux/prefetch.h>
 #include <linux/fsverity.h>
+#include <linux/iomap.h>
 #include "extent_io.h"
 #include "extent-io-tree.h"
 #include "extent_map.h"
@@ -898,6 +899,35 @@ void clear_folio_extent_mapped(struct folio *folio)
 		return btrfs_detach_subpage(fs_info, folio);
 
 	folio_detach_private(folio);
+}
+
+static void btrfs_em_to_iomap(struct inode *inode,
+		struct extent_map *em, struct iomap *iomap,
+		loff_t sector_pos, bool write)
+{
+	struct btrfs_fs_info *fs_info = btrfs_sb(inode->i_sb);
+
+	if (!btrfs_is_data_reloc_root(BTRFS_I(inode)->root) &&
+	    em->flags & EXTENT_FLAG_PINNED) {
+		iomap->type = IOMAP_UNWRITTEN;
+		iomap->addr = extent_map_block_start(em);
+	} else if (em->disk_bytenr == EXTENT_MAP_INLINE) {
+		iomap->addr = IOMAP_NULL_ADDR;
+		iomap->type = IOMAP_INLINE;
+	} else if (em->disk_bytenr == EXTENT_MAP_HOLE ||
+			(!write && (em->flags & EXTENT_FLAG_PREALLOC))) {
+		iomap->addr = IOMAP_NULL_ADDR;
+		iomap->type = IOMAP_HOLE;
+	} else if (extent_map_is_compressed(em)) {
+		iomap->type = IOMAP_ENCODED;
+		iomap->addr = em->disk_bytenr;
+	} else {
+		iomap->addr = extent_map_block_start(em);
+		iomap->type = IOMAP_MAPPED;
+	}
+	iomap->offset = em->start;
+	iomap->bdev = fs_info->fs_devices->latest_dev->bdev;
+	iomap->length = em->len;
 }
 
 static struct extent_map *__get_extent_map(struct inode *inode,
