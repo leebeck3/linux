@@ -1205,8 +1205,14 @@ static int btrfs_do_readpage(struct folio *folio, struct extent_map **em_cached,
 int btrfs_read_folio(struct file *file, struct folio *folio)
 {
 	struct btrfs_bio_ctrl bio_ctrl = { .opf = REQ_OP_READ };
+	struct inode *inode = folio->mapping->host;
+	struct btrfs_fs_info *fs_info = btrfs_sb(inode->i_sb);
 	struct extent_map *em_cached = NULL;
 	int ret;
+
+	if (!btrfs_is_subpage(fs_info, inode->i_mapping))
+		return iomap_read_folio(folio, &btrfs_buffered_read_iomap_ops,
+				&btrfs_iomap_read_folio_ops);
 
 	ret = btrfs_do_readpage(folio, &em_cached, &bio_ctrl, NULL);
 	free_extent_map(em_cached);
@@ -2449,9 +2455,16 @@ int btrfs_writepages(struct address_space *mapping, struct writeback_control *wb
 void btrfs_readahead(struct readahead_control *rac)
 {
 	struct btrfs_bio_ctrl bio_ctrl = { .opf = REQ_OP_READ | REQ_RAHEAD };
+	struct inode *inode = rac->mapping->host;
+	struct btrfs_fs_info *fs_info = btrfs_sb(inode->i_sb);
 	struct folio *folio;
 	struct extent_map *em_cached = NULL;
 	u64 prev_em_start = (u64)-1;
+
+	if (!btrfs_is_subpage(fs_info, rac->mapping)) {
+		iomap_readahead(rac, &btrfs_buffered_read_iomap_ops, &btrfs_iomap_read_folio_ops);
+		return;
+	}
 
 	while ((folio = readahead_folio(rac)) != NULL)
 		btrfs_do_readpage(folio, &em_cached, &bio_ctrl, &prev_em_start);
