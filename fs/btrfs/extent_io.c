@@ -909,8 +909,26 @@ static void btrfs_put_folio(struct inode *inode, loff_t pos,
 	folio_put(folio);
 }
 
+static int btrfs_iomap_read_inline(const struct iomap *iomap, struct folio *folio)
+{
+	int ret = 0;
+	struct inode *inode = folio->mapping->host;
+	struct extent_map *em;
+	struct extent_state *cached_state = NULL;
+
+	lock_extent(&BTRFS_I(inode)->io_tree, 0, folio_size(folio) - 1, &cached_state);
+	em = btrfs_get_extent(BTRFS_I(inode), folio, 0, folio_size(folio));
+	unlock_extent(&BTRFS_I(inode)->io_tree, 0, folio_size(folio) - 1, &cached_state);
+	if (IS_ERR(em))
+		ret = PTR_ERR(em);
+	free_extent_map(em);
+	return ret;
+}
+
+
 static const struct iomap_folio_ops btrfs_iomap_folio_ops = {
 	.put_folio = btrfs_put_folio,
+	.read_inline = btrfs_iomap_read_inline,
 };
 
 static void btrfs_em_to_iomap(struct inode *inode,
