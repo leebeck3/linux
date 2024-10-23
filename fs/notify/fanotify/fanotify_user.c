@@ -564,13 +564,17 @@ static size_t copy_range_info_to_user(struct fanotify_event *event,
 	struct fanotify_perm_event *pevent = FANOTIFY_PERM(event);
 	struct fanotify_event_info_range info = { };
 	size_t info_len = FANOTIFY_RANGE_INFO_LEN;
-	u64 offset = pevent->ppos ? *(pevent->ppos) : 0;
+	u64 offset;
+	u64 end;
 
 	if (WARN_ON_ONCE(info_len > count))
 		return -EFAULT;
 
 	if (WARN_ON_ONCE(!pevent->ppos))
 		return -EINVAL;
+
+	offset = *pevent->ppos;
+	end = offset + pevent->count;
 
 	/*
 	 * The range info is from whatever the user may have submitted their
@@ -580,7 +584,7 @@ static size_t copy_range_info_to_user(struct fanotify_event *event,
 	info.hdr.info_type = FAN_EVENT_INFO_TYPE_RANGE;
 	info.hdr.len = info_len;
 	info.offset = PAGE_ALIGN_DOWN(offset);
-	info.count = PAGE_ALIGN(pevent->count);
+	info.count = PAGE_ALIGN(end) - info.offset;
 
 	if (copy_to_user(buf, &info, info_len))
 		return -EFAULT;

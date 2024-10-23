@@ -215,6 +215,7 @@ bool fsnotify_file_has_pre_content_watches(struct file *file)
 	return fsnotify_object_watched(inode, mnt_mask,
 				       FSNOTIFY_PRE_CONTENT_EVENTS);
 }
+EXPORT_SYMBOL_GPL(fsnotify_file_has_pre_content_watches);
 #endif
 
 

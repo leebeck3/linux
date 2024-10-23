@@ -3473,6 +3473,17 @@ retry_find:
 		}
 	}
 
+	ret = __filemap_fsnotify_fault(vmf, &fpin, folio_pos(folio),
+				       folio_size(folio));
+	if (unlikely(ret)) {
+		folio_unlock(folio);
+		folio_put(folio);
+		if (fpin)
+			fput(fpin);
+		return ret;
+	}
+
+
 	if (!lock_folio_maybe_drop_mmap(vmf, folio, &fpin))
 		goto out_retry;
 
@@ -3483,19 +3494,6 @@ retry_find:
 		goto retry_find;
 	}
 	VM_BUG_ON_FOLIO(!folio_contains(folio, index), folio);
-
-	/*
-	 * Emit the fsnotify event now that hte page is locked.
-	 */
-	ret = __filemap_fsnotify_fault(vmf, &fpin, folio_pos(folio),
-				       folio_size(folio));
-	if (unlikely(ret)) {
-		folio_unlock(folio);
-		folio_put(folio);
-		if (fpin)
-			fput(fpin);
-		return ret;
-	}
 
 	/*
 	 * We have a locked folio in the page cache, now we need to check
